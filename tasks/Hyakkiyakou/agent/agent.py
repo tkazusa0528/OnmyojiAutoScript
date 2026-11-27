@@ -3,7 +3,10 @@ import numpy as np
 from datetime import datetime
 from cached_property import cached_property
 
-from oashya.tracker import Tracker
+try:
+    from oashya.tracker import Tracker
+except ImportError:
+    Tracker = None
 from oashya.labels import CLASSINDEX as CI
 from oashya.labels import id2label, id2name
 from module.logger import logger

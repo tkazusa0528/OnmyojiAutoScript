@@ -12,7 +12,10 @@ from rich.table import Table
 from threading import Event, Lock, Thread
 from oashya.labels import id2label, CLASSIFY, CLASSINDEX, id2name
 from oashya.utils import draw_tracks
-from oashya.tracker import Tracker
+try:
+    from oashya.tracker import Tracker
+except ImportError:
+    Tracker = None
 
 from tasks.base_task import BaseTask
 from module.logger import logger
