@@ -313,6 +313,9 @@ def main() -> int:
         print(f'[{status}] {title}')
         for e in errs:
             print(f'  - {e}')
+            if os.environ.get('GITHUB_ACTIONS') == 'true':
+                safe_msg = str(e).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                print(f'::error title={title}::{safe_msg}')
         all_errors.extend(errs)
 
     if all_errors:
@@ -324,4 +327,11 @@ def main() -> int:
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as _exc:
+        import traceback
+        traceback.print_exc()
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            print(f'::error title=Unhandled::{type(_exc).__name__}: {_exc}')
+        sys.exit(1)
