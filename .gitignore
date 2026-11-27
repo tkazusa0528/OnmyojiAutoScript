@@ -16,6 +16,7 @@ dev_tools/debug_tools
 /campaign/test/
 /toolkit
 *.lock
+!deploy/android/requirements-linux.lock
 config/reloadflag
 config/reloadalas
 test.py
@@ -43,7 +44,6 @@ oas-backend.bat
 .eslintrc.js
 .prettierrc.js
 # ai
-AGENTS.md
 CLAUDE.md
 .codex/
 .claude/
@@ -308,6 +308,7 @@ oas.bat
 
 # Locks for local lineup editor writes
 /tasks/Chess/strategy/*.lock
+!deploy/android/requirements-linux.lock
 
 # Local DraftDuel battle records, checkpoints and locks; template stays tracked.
 /data/DraftDuel/

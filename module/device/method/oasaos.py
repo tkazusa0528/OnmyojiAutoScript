@@ -40,6 +40,8 @@ OASAOS_FRAME_MAX_LINE = 4096
 OASAOS_FRAME_TIMEOUT = 5
 # 通道异常后回退 TCP 的冷却时间，避免每帧都多付一次失败握手。
 OASAOS_FRAME_RETRY_SECONDS = 30
+# 特权桥断连重连退避（真机拉起大型游戏时系统可能短暂重绑特权服务，需留出 ~7s 自愈窗口）
+OASAOS_BRIDGE_RETRY_DELAYS = (0.0, 0.5, 1.0, 2.0, 3.0)
 
 
 class OasaosBridgeError(Exception):
@@ -230,7 +232,8 @@ class Oasaos:
         payload['id'] = Oasaos._oasaos_req_id
 
         last_error = None
-        for _ in range(2):
+        max_attempts = len(OASAOS_BRIDGE_RETRY_DELAYS) + 1
+        for attempt in range(max_attempts):
             try:
                 sock = Oasaos._oasaos_sock
                 if sock is None:
@@ -249,8 +252,12 @@ class Oasaos:
                 return json.loads(buf.decode('utf-8'))
             except (OSError, OasaosBridgeError, json.JSONDecodeError) as e:
                 last_error = e
-                logger.warning(f'Oasaos bridge error: {e}, reconnecting')
+                logger.warning(f'Oasaos bridge error ({attempt + 1}/{max_attempts}): {e}, reconnecting')
                 self._oasaos_close_sock()
+                if attempt < len(OASAOS_BRIDGE_RETRY_DELAYS):
+                    delay = OASAOS_BRIDGE_RETRY_DELAYS[attempt]
+                    if delay > 0:
+                        time.sleep(delay)
         logger.critical(f'Oasaos bridge unreachable: {last_error}')
         raise RequestHumanTakeover
 
@@ -416,12 +423,24 @@ class Oasaos:
 
     # ---------------------------------------------------------------- App 控制
 
+    def is_package_installed_oasaos(self, package: str) -> bool:
+        """检查指定包名是否已安装在宿主机上。"""
+        if not package or package == 'auto':
+            return False
+        resp = self.oasaos_shell(f'pm path {shlex.quote(package)}', timeout=10)
+        return bool(resp.get('ok') and resp.get('stdout', '').strip())
+
     def detect_package_oasaos(self) -> str:
         """自动检测设备上的阴阳师游戏包。带渠道后缀的具体包名优先于裸 com.netease.onmyoji。"""
         resp = self.oasaos_shell('pm list packages', timeout=15)
         packages = re.findall(r'package:([^\s]+)', resp.get('stdout', ''))
         games = sorted(
-            (pkg for pkg in packages if 'onmyoji' in pkg.lower()),
+            (
+                pkg for pkg in packages
+                if 'onmyoji' in pkg.lower()
+                and not pkg.lower().startswith('com.oas.')
+                and 'autoscript' not in pkg.lower()
+            ),
             key=len,
             reverse=True,
         )
@@ -463,13 +482,18 @@ class Oasaos:
             except ScriptError as e:
                 # 竖屏任务（大神签到）异常退出会把虚拟屏留在 720x1280，
                 # 横屏游戏的 app_prepare 硬性要求 1280x720，先恢复横屏再重试。
-                if 'requires 1280x720' not in str(e):
-                    raise
-                logger.warning(f'虚拟屏非 1280x720，恢复横屏后重试 app_prepare: {e}')
-                display_id = self.oasaos_set_display_size(1280, 720)
-                self._oasaos_call_ok({
-                    'method': 'app_prepare', 'package': package, 'displayId': display_id,
-                })
+                if 'requires 1280x720' in str(e):
+                    logger.warning(f'虚拟屏非 1280x720，恢复横屏后重试 app_prepare: {e}')
+                    display_id = self.oasaos_set_display_size(1280, 720)
+                    try:
+                        self._oasaos_call_ok({
+                            'method': 'app_prepare', 'package': package, 'displayId': display_id,
+                        })
+                    except ScriptError as retry_err:
+                        logger.warning(f'Oasaos app_prepare 兼容缩放调整被系统拒绝，继续启动: {retry_err}')
+                else:
+                    # 部分国产 ROM 的 APS / ScreenCompat 拒绝 shell 修改，告警后继续启动游戏
+                    logger.warning(f'Oasaos app_prepare 兼容缩放调整被系统拒绝，继续启动: {e}')
         component = self.oasaos_resolve_activity(package)
         # -W 等启动完成再返回。窗口没建好就 app_focus 会回 no ready target window，
         # 而 am start 立即返回时窗口往往还在创建中。
@@ -477,10 +501,14 @@ class Oasaos:
             f'am start -W --display {display_id} -n {shlex.quote(component)}', timeout=60)
         if 'Error' in out:
             raise ScriptError(f'Oasaos app start failed: {out.strip()[:200]}')
+        # am start 期间虚拟屏若经历重建或自愈，刷新最新 displayId 再请求聚焦
+        display_id = self.oasaos_display_id
         if caps.get('appFocus'):
-            self._oasaos_call_ok({
+            focus_resp = self._oasaos_call({
                 'method': 'app_focus', 'package': package, 'displayId': display_id,
             })
+            if not focus_resp.get('ok'):
+                logger.warning(f'Oasaos app_focus 未立即就绪，交由后续看门狗与重试跟进: {focus_resp.get("error")}')
         return True
 
     def app_start_portrait_oasaos(self, package_name, display_id=None) -> bool:
@@ -497,9 +525,11 @@ class Oasaos:
         if 'Error' in out:
             raise ScriptError(f'Oasaos portrait app start failed: {out.strip()[:200]}')
         if self.oasaos_capabilities().get('appFocus'):
-            self._oasaos_call_ok({
+            focus_resp = self._oasaos_call({
                 'method': 'app_focus', 'package': package, 'displayId': display_id,
             })
+            if not focus_resp.get('ok'):
+                logger.warning(f'Oasaos portrait app_focus warning: {focus_resp.get("error")}')
         return True
 
     def app_stop_oasaos(self, package_name=None) -> None:

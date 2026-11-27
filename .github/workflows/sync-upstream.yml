@@ -1,0 +1,152 @@
+name: Sync Upstream OAS
+
+on:
+  schedule:
+    # 每天北京时间 04:00 自动同步上游 master/dev
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      allow_rewind:
+        description: "允许上游回退时强制对齐 master/dev"
+        required: false
+        default: false
+        type: boolean
+      open_self_pr:
+        description: "当 master 有新提交时，自动创建合并到 self 分支的 PR（触发容器门禁）"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: oas-sync-upstream
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_CANDIDATES: |
+    https://github.com/nearaura/OnmyojiAutoScript.git
+    https://gitcode.com/OnmyojiAutoScript/OnmyojiAutoScript.git
+  GIT_TERMINAL_PROMPT: '0'
+
+jobs:
+  sync:
+    name: Sync upstream dev & master
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve upstream source
+        run: |
+          set -euo pipefail
+          git remote remove upstream 2>/dev/null || true
+          while IFS= read -r url; do
+            [ -z "$url" ] && continue
+            if timeout 30 git ls-remote --heads "$url" dev master >/dev/null 2>&1; then
+              echo "resolved upstream: $url"
+              git remote add upstream "$url"
+              exit 0
+            fi
+            echo "::warning::unreachable upstream: $url"
+          done <<< "$UPSTREAM_CANDIDATES"
+          echo "::error::no reachable upstream candidate"
+          exit 1
+
+      - name: Sync dev
+        run: |
+          set -euo pipefail
+          git fetch upstream dev
+          if git rev-parse --verify --quiet origin/dev >/dev/null; then
+            base=$(git rev-parse origin/dev)
+            if ! git merge-base --is-ancestor "$base" upstream/dev; then
+              if [ "${{ inputs.allow_rewind }}" != "true" ]; then
+                echo "::error::upstream/dev 不是 origin/dev 的后代，拒绝回退"
+                exit 1
+              fi
+            fi
+            if git diff --quiet "$base" upstream/dev; then
+              echo "dev already aligned, skip push"
+              exit 0
+            fi
+            git push --force-with-lease=dev:"$base" origin upstream/dev:refs/heads/dev
+          else
+            git push origin upstream/dev:refs/heads/dev
+          fi
+
+      - name: Sync master
+        id: sync_master
+        run: |
+          set -euo pipefail
+          git fetch upstream master
+          workflow_tmp="$(mktemp)"
+          cp .github/workflows/sync-upstream.yml "$workflow_tmp"
+
+          if git rev-parse --verify --quiet origin/master >/dev/null; then
+            base=$(git rev-parse origin/master)
+            prev=$(git log -1 --format=%s "$base" | sed -n 's/.*upstream (\([0-9a-f]\{7,40\}\)).*/\1/p')
+            if [ -n "$prev" ] && git rev-parse --verify --quiet "$prev^{commit}" >/dev/null; then
+              if ! git merge-base --is-ancestor "$prev" upstream/master; then
+                if [ "${{ inputs.allow_rewind }}" != "true" ]; then
+                  echo "::error::上游 master 回退了，拒绝回退"
+                  exit 1
+                fi
+              fi
+            fi
+          else
+            base=""
+          fi
+
+          git checkout -B sync_master upstream/master
+          mkdir -p .github/workflows
+          cp "$workflow_tmp" .github/workflows/sync-upstream.yml
+          rm -f "$workflow_tmp"
+          git add .github/workflows/sync-upstream.yml
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: align master to upstream ($(git rev-parse --short=12 upstream/master)), keep sync-upstream workflow"
+          fi
+
+          if [ -n "$base" ] && git diff --quiet "$base" sync_master; then
+            echo "master tree already matches, skip push"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$base" ]; then
+            git push --force-with-lease=master:"$base" origin sync_master:refs/heads/master
+          else
+            git push origin sync_master:refs/heads/master
+          fi
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR from master to self when requested
+        if: ${{ (inputs.open_self_pr != false) && (steps.sync_master.outputs.updated == 'true' || github.event_name == 'workflow_dispatch') }}
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin master self
+          if git merge-base --is-ancestor origin/master origin/self; then
+            echo "origin/self already contains origin/master."
+            exit 0
+          fi
+          pr_branch="sync/master-to-self"
+          git checkout -B "$pr_branch" origin/self
+          if git merge --no-edit origin/master -X ours -- .github/workflows/sync-upstream.yml 2>/dev/null || git merge --no-edit origin/master; then
+            git push -f origin "$pr_branch"
+            gh pr create --base self --head "$pr_branch" \
+              --title "chore(sync): merge upstream master into self" \
+              --body "Automated sync from upstream master into Android self branch. Merge after Hot-Update Gate passes." || true
+          else
+            git merge --abort || true
+            echo "::warning::Merge from master to self has conflicts; manual merge required."
+          fi

@@ -27,8 +27,8 @@ ROOT = Path(__file__).resolve().parents[2]
 GUI_DIR = ROOT / 'module' / 'server' / 'web' / 'gui'
 MARKER_FILE = GUI_DIR.parent / 'gui-update-marker.json'
 
-DOWNLOAD_URL = 'https://github.com/LGG686/OASX-self/releases/download/oasx-web-latest/oasx-web.zip'
-RELEASE_API = 'https://api.github.com/repos/LGG686/OASX-self/releases/tags/oasx-web-latest'
+DOWNLOAD_URL = 'https://github.com/tkazusa0528/OASX-self/releases/download/oasx-web-latest/oasx-web.zip'
+RELEASE_API = 'https://api.github.com/repos/tkazusa0528/OASX-self/releases/tags/oasx-web-latest'
 ASSET_NAME = 'oasx-web.zip'
 CHECK_TIMEOUT = 15
 DOWNLOAD_TIMEOUT = 600

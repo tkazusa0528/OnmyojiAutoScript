@@ -4,9 +4,9 @@ Deploy:
     # 默认指向本 fork：任何按模板重写 deploy.yaml 的调用（DeployConfig.write 等）都落回这里，
     # 不会再把更新源打回上游。 / Defaults to this fork so template-based rewrites of deploy.yaml
     # fall back to the right source instead of the upstream repo.
-    Repository: https://github.com/LGG686/OnmyojiAutoScript
+    Repository: https://github.com/tkazusa0528/OnmyojiAutoScript
     # Branch of Alas
-    Branch: OASA
+    Branch: self
     # Filepath of git executable `git.exe`
     # [Easy installer] Use './toolkit/Git/mingw64/bin/git.exe'
     # [Other] Use you own git

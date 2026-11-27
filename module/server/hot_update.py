@@ -39,8 +39,8 @@ DEPLOY_TEMPLATE = ROOT / 'deploy/template'
 STATE_FILE = 'oas-update-state.json'
 COMMIT_FILE = 'OAS_SOURCE_COMMIT'
 
-DEFAULT_REPO = 'https://github.com/LGG686/OnmyojiAutoScript'
-DEFAULT_BRANCH = 'OASA'
+DEFAULT_REPO = 'https://github.com/tkazusa0528/OnmyojiAutoScript'
+DEFAULT_BRANCH = 'self'
 
 # rootfs 入口进程认这个退出码，收到就重新拉起 WebUI
 RESTART_EXIT_CODE = 75
@@ -410,8 +410,17 @@ def _install_requirements() -> None:
 
 
 def _write_commit(target: str) -> None:
-    """刷新 OAS_SOURCE_COMMIT；App 的「OAS 提交」读的就是它。"""
+    """刷新 OAS_SOURCE_COMMIT 并同步更新 BUILD_MANIFEST 的 oas_commit（保留原 rootfs_version）。"""
     (ROOT / COMMIT_FILE).write_text(target + '\n', encoding='utf-8')
+    manifest_path = ROOT / 'BUILD_MANIFEST'
+    if manifest_path.is_file():
+        try:
+            data = json.loads(manifest_path.read_text(encoding='utf-8'))
+            if isinstance(data, dict) and data.get('oas_commit') != target:
+                data['oas_commit'] = target
+                _write_json('BUILD_MANIFEST', data)
+        except (OSError, ValueError):
+            pass
 
 
 def request_restart() -> None:

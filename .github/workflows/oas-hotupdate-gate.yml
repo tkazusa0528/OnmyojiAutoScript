@@ -1,0 +1,43 @@
+name: OAS Android Hot-Update Gate
+
+on:
+  push:
+    branches:
+      - self
+  pull_request:
+    branches:
+      - self
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hotupdate-gate:
+    name: PRoot Container Smoke & Boundary Gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout OAS source
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "deploy/android/requirements-linux.lock"
+
+      - name: Build frozen Android PRoot Python 3.10 venv
+        run: |
+          uv python install 3.10.11
+          uv venv --python 3.10.11 .venv
+          uv pip install --python .venv/bin/python -r deploy/android/requirements-linux.lock
+          SITE_PKGS="$(find .venv/lib -maxdepth 2 -type d -name site-packages -print -quit)"
+          install -m 0644 deploy/android/sitecustomize.py "$SITE_PKGS/sitecustomize.py"
+
+      - name: Run full hot-update safety gate
+        env:
+          OAS_ANDROID: "1"
+          OAS_ANDROID_HOST: "1"
+        run: |
+          .venv/bin/python deploy/android/hotupdate_gate.py --mode full

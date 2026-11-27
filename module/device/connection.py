@@ -100,6 +100,11 @@ class Connection(ConnectionAttr):
             self.package = self.config.script.device.package_name.value
             if self.package == 'auto':
                 self.package = self.detect_package_oasaos()
+            elif not self.is_package_installed_oasaos(self.package):
+                logger.warning(
+                    f'Configured package {self.package} is not installed, falling back to auto-detect'
+                )
+                self.package = self.detect_package_oasaos()
             logger.attr('PackageName', self.package)
             return
         # 桌面客户端模式：不经过 adb 设备/包检测，包名直接用配置值
