@@ -14,7 +14,7 @@
     "imageName": "res_select_ryou_button.png",
     "profile": "High",
     "roiFront": "560,577,156,46",
-    "roiBack": "560,577,156,46",
+    "roiBack": "540,557,196,86",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "寮突选择阴阳寮按钮"
@@ -24,7 +24,7 @@
     "imageName": "res_no_select_ryou.png",
     "profile": "High",
     "roiFront": "554,180,100,167",
-    "roiBack": "554,180,100,167",
+    "roiBack": "534,160,140,207",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "寮突未选择阴阳寮"
@@ -44,7 +44,7 @@
     "imageName": "res_ryou_reward.png",
     "profile": "High",
     "roiFront": "134,417,241,40",
-    "roiBack": "134,417,241,40",
+    "roiBack": "114,397,281,80",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "寮击破奖励"
@@ -64,7 +64,7 @@
     "imageName": "res_success_penetration.png",
     "profile": "High",
     "roiFront": "141,374,234,37",
-    "roiBack": "141,374,234,37",
+    "roiBack": "121,354,274,77",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "攻破阴阳寮"
@@ -74,7 +74,7 @@
     "imageName": "res_real_raid_refresh.png",
     "profile": "High",
     "roiFront": "963,569,174,60",
-    "roiBack": "963,569,174,60",
+    "roiBack": "943,549,214,100",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "个人突破刷新按钮"
@@ -84,7 +84,7 @@
     "imageName": "res_ryou_reward_90.png",
     "profile": "High",
     "roiFront": "134,415,232,38",
-    "roiBack": "134,415,232,38",
+    "roiBack": "114,395,272,78",
     "method": "Template matching",
     "threshold": 0.8,
     "description": "击破后的寮奖励"
