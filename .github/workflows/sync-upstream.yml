@@ -12,9 +12,9 @@ on:
         default: false
         type: boolean
       open_self_pr:
-        description: "当 master 有新提交时，自动创建合并到 self 分支的 PR（触发容器门禁）"
+        description: "手动勾选时，尝试创建从 master 合并到 self 分支的 PR"
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -129,7 +129,7 @@ jobs:
           echo "updated=true" >> "$GITHUB_OUTPUT"
 
       - name: Open PR from master to self when requested
-        if: ${{ (inputs.open_self_pr != false) && (steps.sync_master.outputs.updated == 'true' || github.event_name == 'workflow_dispatch') }}
+        if: ${{ inputs.open_self_pr == true }}
         env:
           GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
         run: |
