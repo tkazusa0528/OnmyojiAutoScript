@@ -60,7 +60,7 @@ class _WinTypes(types.ModuleType):
 def install() -> None:
     """注册 pywin32 与 ctypes.wintypes 的占位模块。"""
     for name in ('win32api', 'win32gui', 'win32process', 'win32ui', 'win32print',
-                 'pywintypes', 'pythoncom'):
+                 'pywintypes', 'pythoncom', 'winreg'):
         sys.modules.setdefault(name, _Unavailable(name))
     sys.modules.setdefault('win32con', _Constants('win32con'))
     # 必须在任何 `from ctypes import wintypes` 之前占位：真模块在非 Windows 上导入即报错。
