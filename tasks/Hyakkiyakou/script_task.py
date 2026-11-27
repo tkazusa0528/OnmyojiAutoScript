@@ -8,7 +8,11 @@ from random import choice
 from cached_property import cached_property
 # Use cmd to install: ./toolkit/python.exe -m pip install -i https://pypi.org/simple/ oashya --trusted-host pypi.org
 # update oashya:  ./toolkit/python.exe -m pip install --upgrade oashya
-from oashya.tracker import Tracker
+try:
+    from oashya.tracker import Tracker
+except ImportError:
+    # oashya 0.0.7 wheel 仅内置 Windows tracker.cp310-win_amd64.pyd，Linux/Android 导入期降级
+    Tracker = None
 from oashya.labels import label2id, CLASSINDEX as CI, id2name
 from oashya.utils import draw_tracks
 
@@ -31,7 +35,9 @@ class ScriptTask(GameUi, HyaSlave, SwitchOnmyoji):
         return self.config.hyakkiyakou
 
     @cached_property
-    def tracker(self) -> Tracker:
+    def tracker(self):
+        if Tracker is None:
+            raise RequestHumanTakeover('百鬼夜行 oashya.tracker 仅提供 Windows 扩展，Linux/Android 容器暂不支持')
         hyakkiyakou_models = self._config.hyakkiyakou_models
         conf = hyakkiyakou_models.conf_threshold
         nms = hyakkiyakou_models.iou_threshold
