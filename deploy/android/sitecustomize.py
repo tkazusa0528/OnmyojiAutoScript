@@ -37,6 +37,13 @@ class _Unavailable(types.ModuleType):
         return unavailable
 
 
+class _FalsyUnavailable(_Unavailable):
+    """用于 winreg 等标准库按 truthy 判断可用性的占位模块。"""
+
+    def __bool__(self) -> bool:
+        return False
+
+
 class _Constants(types.ModuleType):
     """常量式 pywin32 模块（win32con）：任意属性都返回 0。"""
 
@@ -60,8 +67,13 @@ class _WinTypes(types.ModuleType):
 def install() -> None:
     """注册 pywin32 与 ctypes.wintypes 的占位模块。"""
     for name in ('win32api', 'win32gui', 'win32process', 'win32ui', 'win32print',
-                 'pywintypes', 'pythoncom', 'winreg'):
+                 'pywintypes', 'pythoncom'):
         sys.modules.setdefault(name, _Unavailable(name))
+    # mimetypes.read_windows_registry 通过 `elif _winreg:` 判断是否读注册表，
+    # 必须让 winreg 占位保持 falsy 且置空 mimetypes._winreg，避免 /gui/ 静态响应抛 RuntimeError。
+    sys.modules.setdefault('winreg', _FalsyUnavailable('winreg'))
+    import mimetypes
+    mimetypes._winreg = None
     sys.modules.setdefault('win32con', _Constants('win32con'))
     # 必须在任何 `from ctypes import wintypes` 之前占位：真模块在非 Windows 上导入即报错。
     wintypes = _WinTypes('ctypes.wintypes')
