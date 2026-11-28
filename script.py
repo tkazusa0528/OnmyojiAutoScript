@@ -664,7 +664,7 @@ class Script:
                 self._cooperation.finish(task)
                 peers = getattr(self.config, '_cooperation_peers', None) or {}
                 peers.pop(task, None)
-            self.config.model.running_task = ''
+                self._clear_running_task()
             logger.info(f'Scheduler: End task `{task}`')
             self.is_first_task = False
             if task == 'Restart' and success:
@@ -701,6 +701,7 @@ class Script:
                 # 关闭模拟器
                 if self.config.script.error.error_repeated:
                     self.device.emulator_stop()
+                self._clear_running_task()
                 exit(1)
 
             if success:
@@ -716,11 +717,19 @@ class Script:
 
         self._cooperation.close()
 
+    def _clear_running_task(self) -> None:
+        """清空当前运行任务标记，避免异常退出后轮询持续误报运行中。"""
+        try:
+            self.config.model.running_task = ''
+        except Exception as e:
+            logger.warning(f'Failed to clear running_task: {e}')
+
     def _ensure_restart_enabled(self) -> None:
         """所有重启入口均尊重任务启用开关，禁止绕过用户配置。"""
         if self.config.model.restart.scheduler.enable:
             return
         self._error_restart_pending = False
+        self._clear_running_task()
         logger.critical('Restart task is disabled; stop script instead of restarting game')
         self.config.notifier.push(
             title='Restart',
@@ -733,6 +742,7 @@ class Script:
         self._ensure_restart_enabled()
         limit = self.config.model.restart.restart_config.error_restart_limit
         if self._error_restart_count >= limit:
+            self._clear_running_task()
             logger.critical(f'Error restart limit reached ({self._error_restart_count}/{limit}): {command}; stop script')
             self.config.notifier.push(
                 title=f'{I18n.trans_zh_cn(command)}{command}',

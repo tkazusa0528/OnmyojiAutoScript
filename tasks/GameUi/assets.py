@@ -92,6 +92,8 @@ class GameUiAssets:
 	I_EXPLORATION_GOTO_HEIAN_KITAN = RuleImage(profile="High", roi_front=(739,643,52,44), roi_back=(33,619,1150,99), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_exploration_goto_heian_kitan.png")
 	# 探索前往契灵之境 
 	I_EXPLORATION_GOTO_BONDLING_FAIRYLAND = RuleImage(profile="High", roi_front=(1024,635,52,47), roi_back=(33,619,1150,99), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_exploration_goto_bondling_fairyland.png")
+	# 探索底栏展开按钮 
+	I_EXPLORATION_EXPAND = RuleImage(profile="High", roi_front=(716,670,32,32), roi_back=(600,619,580,99), threshold=0.75, method="Template matching", file="./tasks/GameUi/page/page_exploration_expand.png")
 	# 觉醒页面标志(必须在下方,觉醒页面有动画加载) 
 	I_CHECK_AWAKE = RuleImage(profile="High", roi_front=(165,533,39,45), roi_back=(115,521,201,120), threshold=0.8, method="Template matching", file="./tasks/GameUi/page/page_check_awake.png")
 	# 八岐大蛇页面标志(同觉醒逻辑back固定刚好等待加载动画) 

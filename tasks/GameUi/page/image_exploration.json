@@ -358,5 +358,15 @@
     "method": "Template matching",
     "threshold": 0.8,
     "description": "孔雀国标志"
+  },
+  {
+    "itemName": "exploration_expand",
+    "imageName": "page_exploration_expand.png",
+    "profile": "High",
+    "roiFront": "716,670,32,32",
+    "roiBack": "600,619,580,99",
+    "method": "Template matching",
+    "threshold": 0.75,
+    "description": "探索底栏展开按钮"
   }
 ]

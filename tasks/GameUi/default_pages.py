@@ -458,16 +458,31 @@ page_heian_kitan.connect(page_exploration, GameUiAssets.I_CHECK_HEIAN_KITAN, key
 page_exploration.connect(page_heian_kitan, GameUiAssets.I_EXPLORATION_GOTO_HEIAN_KITAN, key="page_exploration->page_heian_kitan")
 
 
+def _click_exploration_targets(task, *targets) -> bool:
+    """点击探索底栏入口，若底栏折叠则先展开后再重试。"""
+    for target in targets:
+        if task.appear_then_click(target):
+            return True
+    if task.appear_then_click(GameUiAssets.I_EXPLORATION_EXPAND, interval=1):
+        time.sleep(0.8)
+        task.screenshot()
+        for target in targets:
+            if task.appear_then_click(target):
+                return True
+    return False
+
+
 def exploration_to_six_gates(task) -> bool:
     """探索前往六道之门, 处理不同入口情况"""
-    if task.appear_then_click(GameUiAssets.I_EXPLORATION_TO_MOON_SEA) or \
-            task.appear_then_click(GameUiAssets.I_EXPLORATION_TO_INCENSE_REALM) or \
-            task.appear_then_click(GameUiAssets.I_EXPLORATION_TO_SEASONRIFT_FOREST) or \
-            task.appear_then_click(GameUiAssets.I_EXPLORATION_TO_PURE_BUDDHA_REALM) or \
-            task.appear_then_click(GameUiAssets.I_EXPLORATION_TO_MANTRA_TOWER) or \
-            task.appear_then_click(GameUiAssets.I_EXPLORATION_TO_PEACOCK_KINGDOM):
-        return True
-    return False
+    return _click_exploration_targets(
+        task,
+        GameUiAssets.I_EXPLORATION_TO_MOON_SEA,
+        GameUiAssets.I_EXPLORATION_TO_INCENSE_REALM,
+        GameUiAssets.I_EXPLORATION_TO_SEASONRIFT_FOREST,
+        GameUiAssets.I_EXPLORATION_TO_PURE_BUDDHA_REALM,
+        GameUiAssets.I_EXPLORATION_TO_MANTRA_TOWER,
+        GameUiAssets.I_EXPLORATION_TO_PEACOCK_KINGDOM,
+    )
 
 page_six_gates = Page(any_of(GameUiAssets.I_CHECK_MOON_SEA, GameUiAssets.I_CHECK_INCENSE_REALM,
                              GameUiAssets.I_CHECK_SEASONRIFT_FOREST, GameUiAssets.I_CHECK_PURE_BUDDHA_REALM,
@@ -480,13 +495,17 @@ page_bondling_fairyland = Page(GameUiAssets.I_CHECK_BONDLING_FAIRYLAND, category
 page_bondling_fairyland.connect(page_exploration, GlobalGameAssets.I_UI_BACK_YELLOW, key="page_bondling_fairyland->page_exploration")
 page_exploration.connect(
     page_bondling_fairyland,
-    GameUiAssets.I_EXPLORATION_GOTO_BONDLING_FAIRYLAND,
+    action=lambda task: _click_exploration_targets(task, GameUiAssets.I_EXPLORATION_GOTO_BONDLING_FAIRYLAND),
     key="page_exploration->page_bondling_fairyland",
 )
 
 page_hero_test = Page(GameUiAssets.I_CHECK_HERO_TEST, category="global")
 page_hero_test.connect(page_exploration, GlobalGameAssets.I_UI_BACK_YELLOW, key="page_hero_test->page_exploration")
-page_exploration.connect(page_hero_test, GameUiAssets.I_EXPLORATION_GOTO_HERO_TEST, key="page_exploration->page_hero_test")
+page_exploration.connect(
+    page_hero_test,
+    action=lambda task: _click_exploration_targets(task, GameUiAssets.I_EXPLORATION_GOTO_HERO_TEST),
+    key="page_exploration->page_hero_test",
+)
 
 
 def handle_battle_page(task) -> bool:
